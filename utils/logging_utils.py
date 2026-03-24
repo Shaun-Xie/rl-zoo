@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+import csv
+import json
 import os
-from typing import Any, Mapping
+from pathlib import Path
+from typing import Any, Mapping, Sequence
 
 
 def wandb_is_available() -> bool:
@@ -82,3 +85,55 @@ def finish_wandb(run: Any | None) -> None:
         run.finish()
     except Exception as exc:
         print(f"Unable to finish W&B run cleanly: {exc}")
+
+
+def save_episode_metrics_csv(
+    rows: Sequence[Mapping[str, Any]],
+    path: str | Path,
+) -> Path:
+    """Save per-episode metrics to a CSV file."""
+
+    output_path = Path(path)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+
+    if not rows:
+        output_path.write_text("", encoding="utf-8")
+        return output_path
+
+    fieldnames = list(rows[0].keys())
+    with output_path.open("w", newline="", encoding="utf-8") as file_handle:
+        writer = csv.DictWriter(file_handle, fieldnames=fieldnames)
+        writer.writeheader()
+        writer.writerows(rows)
+
+    return output_path
+
+
+def save_json(data: Mapping[str, Any], path: str | Path) -> Path:
+    """Save a small JSON artifact to disk."""
+
+    output_path = Path(path)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+
+    with output_path.open("w", encoding="utf-8") as file_handle:
+        json.dump(_make_json_safe(data), file_handle, indent=2)
+        file_handle.write("\n")
+
+    return output_path
+
+
+def _make_json_safe(value: Any) -> Any:
+    """Convert common Python and NumPy values into JSON-friendly types."""
+
+    if isinstance(value, Path):
+        return str(value)
+    if isinstance(value, dict):
+        return {str(key): _make_json_safe(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_make_json_safe(item) for item in value]
+    if hasattr(value, "item"):
+        try:
+            return value.item()
+        except Exception:
+            return value
+    return value

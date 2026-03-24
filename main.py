@@ -1,25 +1,39 @@
 from __future__ import annotations
 
 import argparse
+from pathlib import Path
 
 from config import (
     ACTION_LABELS,
     DEFAULT_LAYOUT_NAME,
+    DEFAULT_MAX_STEPS,
     DEFAULT_RANDOM_ROLLOUT_STEPS,
     DEFAULT_SEED,
     EnvConfig,
     RunConfig,
+    SAVED_MODELS_DIR,
     ensure_project_dirs,
 )
 from env.maze_env import MazeEnv
 from env.maze_layouts import list_layout_names
+from evaluation.evaluate import evaluate_q_learning_model
+from training.train_q_learning import run_q_learning_training
 from utils.seed import seed_action_space, set_global_seeds
 
 
 def parse_args() -> argparse.Namespace:
-    """Parse CLI arguments for the environment sanity check."""
+    """Parse CLI arguments for sanity checks, training, and evaluation."""
 
-    parser = argparse.ArgumentParser(description="Run a random rollout in the maze.")
+    parser = argparse.ArgumentParser(
+        description="Run maze sanity checks, train tabular Q-learning, or evaluate a saved Q-table."
+    )
+    parser.add_argument(
+        "--mode",
+        type=str,
+        default="sanity",
+        choices=("sanity", "train-q", "eval-q"),
+        help="Program mode.",
+    )
     parser.add_argument(
         "--layout",
         type=str,
@@ -30,14 +44,14 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--episodes",
         type=int,
-        default=1,
-        help="Number of random-rollout episodes to run.",
+        default=None,
+        help="Episode count. Defaults: 1 for sanity, 800 for train-q, 100 for eval-q.",
     )
     parser.add_argument(
         "--max-steps",
         type=int,
-        default=DEFAULT_RANDOM_ROLLOUT_STEPS,
-        help="Episode truncation limit for the sanity check.",
+        default=None,
+        help="Episode step limit. Defaults: 20 for sanity, 80 for train-q and eval-q.",
     )
     parser.add_argument(
         "--seed",
@@ -50,7 +64,48 @@ def parse_args() -> argparse.Namespace:
         type=str,
         default="none",
         choices=("none", "human", "ansi", "rgb_array"),
-        help="Render mode used during the rollout.",
+        help="Render mode used during sanity checks or evaluation.",
+    )
+    parser.add_argument(
+        "--alpha",
+        type=float,
+        default=0.2,
+        help="Q-learning learning rate.",
+    )
+    parser.add_argument(
+        "--gamma",
+        type=float,
+        default=0.99,
+        help="Q-learning discount factor.",
+    )
+    parser.add_argument(
+        "--epsilon-start",
+        type=float,
+        default=1.0,
+        help="Initial epsilon for Q-learning.",
+    )
+    parser.add_argument(
+        "--epsilon-min",
+        type=float,
+        default=0.05,
+        help="Minimum epsilon for Q-learning.",
+    )
+    parser.add_argument(
+        "--epsilon-decay",
+        type=float,
+        default=0.995,
+        help="Per-episode epsilon decay for Q-learning.",
+    )
+    parser.add_argument(
+        "--model-path",
+        type=str,
+        default=str(SAVED_MODELS_DIR / "q_learning" / "q_table.pkl"),
+        help="Path used to save or load the Q-learning model.",
+    )
+    parser.add_argument(
+        "--use-wandb",
+        action="store_true",
+        help="Enable optional Weights & Biases logging during training.",
     )
     return parser.parse_args()
 
@@ -127,22 +182,67 @@ def run_random_rollout(config: RunConfig) -> None:
 
 
 def main() -> None:
-    """CLI entry point for the scaffold sanity test."""
+    """CLI entry point for environment checks and Q-learning experiments."""
 
     args = parse_args()
     ensure_project_dirs()
+    render_mode = None if args.render == "none" else args.render
 
-    run_config = RunConfig(
-        seed=args.seed,
-        episodes=args.episodes,
-        random_rollout_steps=args.max_steps,
-        env=EnvConfig(
+    if args.mode == "sanity":
+        sanity_episodes = args.episodes if args.episodes is not None else 1
+        sanity_steps = args.max_steps if args.max_steps is not None else DEFAULT_RANDOM_ROLLOUT_STEPS
+
+        run_config = RunConfig(
+            seed=args.seed,
+            episodes=sanity_episodes,
+            random_rollout_steps=sanity_steps,
+            env=EnvConfig(
+                layout_name=args.layout,
+                max_steps=sanity_steps,
+                render_mode=render_mode,
+            ),
+        )
+        run_random_rollout(run_config)
+        return
+
+    if args.mode == "train-q":
+        training_episodes = args.episodes if args.episodes is not None else 800
+        training_steps = args.max_steps if args.max_steps is not None else DEFAULT_MAX_STEPS
+
+        summary = run_q_learning_training(
             layout_name=args.layout,
-            max_steps=args.max_steps,
-            render_mode=None if args.render == "none" else args.render,
-        ),
+            episodes=training_episodes,
+            max_steps=training_steps,
+            alpha=args.alpha,
+            gamma=args.gamma,
+            epsilon_start=args.epsilon_start,
+            epsilon_min=args.epsilon_min,
+            epsilon_decay=args.epsilon_decay,
+            seed=args.seed,
+            use_wandb=args.use_wandb,
+            model_path=Path(args.model_path),
+        )
+        print(
+            f"Training complete. success_rate={summary['success_rate']:.2f} "
+            f"recent_success={summary['recent_success_rate']:.2f}"
+        )
+        return
+
+    evaluation_episodes = args.episodes if args.episodes is not None else 100
+    evaluation_steps = args.max_steps if args.max_steps is not None else DEFAULT_MAX_STEPS
+    summary = evaluate_q_learning_model(
+        model_path=Path(args.model_path),
+        layout_name=args.layout,
+        episodes=evaluation_episodes,
+        max_steps=evaluation_steps,
+        seed=args.seed,
+        render_mode=render_mode,
     )
-    run_random_rollout(run_config)
+    print(
+        f"Evaluation complete. avg_reward={summary['average_reward']:.2f} "
+        f"success_rate={summary['success_rate']:.2f} "
+        f"avg_steps={summary['average_steps']:.2f}"
+    )
 
 
 if __name__ == "__main__":
