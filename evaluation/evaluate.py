@@ -183,6 +183,39 @@ def evaluate_a2c_model(
     return summary
 
 
+def evaluate_ppo_model(
+    *,
+    model_path: str | Path,
+    layout_name: str = DEFAULT_LAYOUT_NAME,
+    episodes: int = 100,
+    max_steps: int = DEFAULT_MAX_STEPS,
+    seed: int = DEFAULT_SEED,
+    render_mode: str | None = None,
+) -> dict[str, Any]:
+    """Load a saved PPO policy and evaluate it greedily on the maze."""
+
+    from algorithms.sb3_ppo import load_ppo_model
+
+    model = load_ppo_model(model_path)
+
+    def ppo_policy(observation: np.ndarray) -> int:
+        action, _ = model.predict(observation, deterministic=True)
+        return int(action)
+
+    summary = evaluate_policy(
+        policy_fn=ppo_policy,
+        layout_name=layout_name,
+        episodes=episodes,
+        max_steps=max_steps,
+        seed=seed,
+        render_mode=render_mode,
+    )
+    summary["algorithm"] = "ppo"
+    summary["model_path"] = str(Path(model_path))
+
+    return summary
+
+
 def evaluate_agent(*args: Any, **kwargs: Any) -> dict[str, Any]:
     """Compatibility wrapper for the generic policy evaluation helper."""
 
