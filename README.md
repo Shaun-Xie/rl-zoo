@@ -7,7 +7,7 @@ A Game AI course project that compares four reinforcement learning approaches on
 - A2C
 - PPO
 
-The project now includes working Q-Learning and REINFORCE baselines for the maze. PPO remains the planned candidate algorithm for later MicroRTS-oriented work.
+The project now includes working Q-Learning, REINFORCE, and A2C baselines for the maze. PPO remains the planned candidate algorithm for later MicroRTS-oriented work.
 
 ## Environment
 
@@ -68,9 +68,22 @@ Evaluate a saved REINFORCE model:
 python3 main.py --mode eval-reinforce --model-path saved_models/reinforce/policy.pt --episodes 100
 ```
 
+Train A2C:
+
+```bash
+python3 main.py --mode train-a2c
+```
+
+Evaluate a saved A2C model:
+
+```bash
+python3 main.py --mode eval-a2c --model-path saved_models/a2c/model.zip --episodes 100
+```
+
 ## Notes
 
 - Q-learning outputs are saved under `saved_models/q_learning/` and `results/q_learning/`.
 - REINFORCE outputs are saved under `saved_models/reinforce/` and `results/reinforce/`.
+- A2C outputs are saved under `saved_models/a2c/` and `results/a2c/`.
 - The tabular state key is an integer tuple built from the maze observation vector.
 - `wandb` is optional. Training still runs normally without it.

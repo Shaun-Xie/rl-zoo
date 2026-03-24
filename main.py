@@ -5,6 +5,7 @@ from pathlib import Path
 
 from config import (
     ACTION_LABELS,
+    DEFAULT_A2C_TIMESTEPS,
     DEFAULT_LAYOUT_NAME,
     DEFAULT_MAX_STEPS,
     DEFAULT_RANDOM_ROLLOUT_STEPS,
@@ -16,7 +17,8 @@ from config import (
 )
 from env.maze_env import MazeEnv
 from env.maze_layouts import list_layout_names
-from evaluation.evaluate import evaluate_q_learning_model, evaluate_reinforce_model
+from evaluation.evaluate import evaluate_a2c_model, evaluate_q_learning_model, evaluate_reinforce_model
+from training.train_a2c import run_a2c_training
 from training.train_q_learning import run_q_learning_training
 from training.train_reinforce import run_reinforce_training
 from utils.seed import seed_action_space, set_global_seeds
@@ -32,7 +34,15 @@ def parse_args() -> argparse.Namespace:
         "--mode",
         type=str,
         default="sanity",
-        choices=("sanity", "train-q", "eval-q", "train-reinforce", "eval-reinforce"),
+        choices=(
+            "sanity",
+            "train-q",
+            "eval-q",
+            "train-reinforce",
+            "eval-reinforce",
+            "train-a2c",
+            "eval-a2c",
+        ),
         help="Program mode.",
     )
     parser.add_argument(
@@ -100,8 +110,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--learning-rate",
         type=float,
-        default=0.001,
-        help="Learning rate for REINFORCE.",
+        default=None,
+        help="Learning rate for REINFORCE or A2C. Uses a mode-specific default when omitted.",
     )
     parser.add_argument(
         "--hidden-size",
@@ -114,6 +124,12 @@ def parse_args() -> argparse.Namespace:
         type=str,
         default=None,
         help="Path used to save or load a model. If omitted, the mode-specific default is used.",
+    )
+    parser.add_argument(
+        "--timesteps",
+        type=int,
+        default=None,
+        help="Total training timesteps for A2C. If omitted, A2C uses a mode-specific default.",
     )
     parser.add_argument(
         "--eval-policy",
@@ -252,6 +268,7 @@ def main() -> None:
     if args.mode == "train-reinforce":
         training_episodes = args.episodes if args.episodes is not None else 1000
         training_steps = args.max_steps if args.max_steps is not None else DEFAULT_MAX_STEPS
+        learning_rate = args.learning_rate if args.learning_rate is not None else 0.001
         reinforce_model_path = (
             Path(args.model_path)
             if args.model_path is not None
@@ -262,12 +279,45 @@ def main() -> None:
             layout_name=args.layout,
             episodes=training_episodes,
             max_steps=training_steps,
-            learning_rate=args.learning_rate,
+            learning_rate=learning_rate,
             gamma=args.gamma,
             hidden_size=args.hidden_size,
             seed=args.seed,
             use_wandb=args.use_wandb,
             model_path=reinforce_model_path,
+        )
+        print(
+            f"Training complete. success_rate={summary['success_rate']:.2f} "
+            f"recent_success={summary['recent_success_rate']:.2f}"
+        )
+        return
+
+    if args.mode == "train-a2c":
+        training_steps = args.max_steps if args.max_steps is not None else DEFAULT_MAX_STEPS
+        learning_rate = args.learning_rate if args.learning_rate is not None else 0.0003
+        total_timesteps = args.timesteps
+        if total_timesteps is None:
+            total_timesteps = (
+                args.episodes * training_steps
+                if args.episodes is not None
+                else DEFAULT_A2C_TIMESTEPS
+            )
+
+        a2c_model_path = (
+            Path(args.model_path)
+            if args.model_path is not None
+            else SAVED_MODELS_DIR / "a2c" / "model.zip"
+        )
+
+        summary = run_a2c_training(
+            layout_name=args.layout,
+            total_timesteps=total_timesteps,
+            max_steps=training_steps,
+            learning_rate=learning_rate,
+            gamma=args.gamma,
+            seed=args.seed,
+            use_wandb=args.use_wandb,
+            model_path=a2c_model_path,
         )
         print(
             f"Training complete. success_rate={summary['success_rate']:.2f} "
@@ -282,6 +332,30 @@ def main() -> None:
 
         summary = evaluate_q_learning_model(
             model_path=q_model_path,
+            layout_name=args.layout,
+            episodes=evaluation_episodes,
+            max_steps=evaluation_steps,
+            seed=args.seed,
+            render_mode=render_mode,
+        )
+        print(
+            f"Evaluation complete. avg_reward={summary['average_reward']:.2f} "
+            f"success_rate={summary['success_rate']:.2f} "
+            f"avg_steps={summary['average_steps']:.2f}"
+        )
+        return
+
+    if args.mode == "eval-a2c":
+        evaluation_episodes = args.episodes if args.episodes is not None else 100
+        evaluation_steps = args.max_steps if args.max_steps is not None else DEFAULT_MAX_STEPS
+        a2c_model_path = (
+            Path(args.model_path)
+            if args.model_path is not None
+            else SAVED_MODELS_DIR / "a2c" / "model.zip"
+        )
+
+        summary = evaluate_a2c_model(
+            model_path=a2c_model_path,
             layout_name=args.layout,
             episodes=evaluation_episodes,
             max_steps=evaluation_steps,

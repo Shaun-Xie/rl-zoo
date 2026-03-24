@@ -150,6 +150,39 @@ def evaluate_reinforce_model(
     return summary
 
 
+def evaluate_a2c_model(
+    *,
+    model_path: str | Path,
+    layout_name: str = DEFAULT_LAYOUT_NAME,
+    episodes: int = 100,
+    max_steps: int = DEFAULT_MAX_STEPS,
+    seed: int = DEFAULT_SEED,
+    render_mode: str | None = None,
+) -> dict[str, Any]:
+    """Load a saved A2C policy and evaluate it greedily on the maze."""
+
+    from algorithms.sb3_a2c import load_a2c_model
+
+    model = load_a2c_model(model_path)
+
+    def a2c_policy(observation: np.ndarray) -> int:
+        action, _ = model.predict(observation, deterministic=True)
+        return int(action)
+
+    summary = evaluate_policy(
+        policy_fn=a2c_policy,
+        layout_name=layout_name,
+        episodes=episodes,
+        max_steps=max_steps,
+        seed=seed,
+        render_mode=render_mode,
+    )
+    summary["algorithm"] = "a2c"
+    summary["model_path"] = str(Path(model_path))
+
+    return summary
+
+
 def evaluate_agent(*args: Any, **kwargs: Any) -> dict[str, Any]:
     """Compatibility wrapper for the generic policy evaluation helper."""
 
