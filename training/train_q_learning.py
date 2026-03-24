@@ -181,6 +181,7 @@ def run_q_learning_training(
         output_dir=output_dir,
         reward_filename="reward_curve.png",
         success_filename="success_rate.png",
+        algorithm_name="Q-Learning",
     )
 
     last_window = episode_metrics[-50:] if episode_metrics else []

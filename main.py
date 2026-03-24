@@ -16,8 +16,9 @@ from config import (
 )
 from env.maze_env import MazeEnv
 from env.maze_layouts import list_layout_names
-from evaluation.evaluate import evaluate_q_learning_model
+from evaluation.evaluate import evaluate_q_learning_model, evaluate_reinforce_model
 from training.train_q_learning import run_q_learning_training
+from training.train_reinforce import run_reinforce_training
 from utils.seed import seed_action_space, set_global_seeds
 
 
@@ -25,13 +26,13 @@ def parse_args() -> argparse.Namespace:
     """Parse CLI arguments for sanity checks, training, and evaluation."""
 
     parser = argparse.ArgumentParser(
-        description="Run maze sanity checks, train tabular Q-learning, or evaluate a saved Q-table."
+        description="Run maze sanity checks, or train and evaluate RL baselines in the maze."
     )
     parser.add_argument(
         "--mode",
         type=str,
         default="sanity",
-        choices=("sanity", "train-q", "eval-q"),
+        choices=("sanity", "train-q", "eval-q", "train-reinforce", "eval-reinforce"),
         help="Program mode.",
     )
     parser.add_argument(
@@ -45,13 +46,13 @@ def parse_args() -> argparse.Namespace:
         "--episodes",
         type=int,
         default=None,
-        help="Episode count. Defaults: 1 for sanity, 800 for train-q, 100 for eval-q.",
+        help="Episode count. Defaults depend on the selected mode.",
     )
     parser.add_argument(
         "--max-steps",
         type=int,
         default=None,
-        help="Episode step limit. Defaults: 20 for sanity, 80 for train-q and eval-q.",
+        help="Episode step limit. Defaults depend on the selected mode.",
     )
     parser.add_argument(
         "--seed",
@@ -97,10 +98,29 @@ def parse_args() -> argparse.Namespace:
         help="Per-episode epsilon decay for Q-learning.",
     )
     parser.add_argument(
+        "--learning-rate",
+        type=float,
+        default=0.001,
+        help="Learning rate for REINFORCE.",
+    )
+    parser.add_argument(
+        "--hidden-size",
+        type=int,
+        default=64,
+        help="Hidden layer size for the REINFORCE policy network.",
+    )
+    parser.add_argument(
         "--model-path",
         type=str,
-        default=str(SAVED_MODELS_DIR / "q_learning" / "q_table.pkl"),
-        help="Path used to save or load the Q-learning model.",
+        default=None,
+        help="Path used to save or load a model. If omitted, the mode-specific default is used.",
+    )
+    parser.add_argument(
+        "--eval-policy",
+        type=str,
+        default="greedy",
+        choices=("greedy", "sample"),
+        help="Action-selection mode used for REINFORCE evaluation.",
     )
     parser.add_argument(
         "--use-wandb",
@@ -208,6 +228,7 @@ def main() -> None:
     if args.mode == "train-q":
         training_episodes = args.episodes if args.episodes is not None else 800
         training_steps = args.max_steps if args.max_steps is not None else DEFAULT_MAX_STEPS
+        q_model_path = Path(args.model_path) if args.model_path is not None else SAVED_MODELS_DIR / "q_learning" / "q_table.pkl"
 
         summary = run_q_learning_training(
             layout_name=args.layout,
@@ -220,7 +241,7 @@ def main() -> None:
             epsilon_decay=args.epsilon_decay,
             seed=args.seed,
             use_wandb=args.use_wandb,
-            model_path=Path(args.model_path),
+            model_path=q_model_path,
         )
         print(
             f"Training complete. success_rate={summary['success_rate']:.2f} "
@@ -228,15 +249,67 @@ def main() -> None:
         )
         return
 
+    if args.mode == "train-reinforce":
+        training_episodes = args.episodes if args.episodes is not None else 1000
+        training_steps = args.max_steps if args.max_steps is not None else DEFAULT_MAX_STEPS
+        reinforce_model_path = (
+            Path(args.model_path)
+            if args.model_path is not None
+            else SAVED_MODELS_DIR / "reinforce" / "policy.pt"
+        )
+
+        summary = run_reinforce_training(
+            layout_name=args.layout,
+            episodes=training_episodes,
+            max_steps=training_steps,
+            learning_rate=args.learning_rate,
+            gamma=args.gamma,
+            hidden_size=args.hidden_size,
+            seed=args.seed,
+            use_wandb=args.use_wandb,
+            model_path=reinforce_model_path,
+        )
+        print(
+            f"Training complete. success_rate={summary['success_rate']:.2f} "
+            f"recent_success={summary['recent_success_rate']:.2f}"
+        )
+        return
+
+    if args.mode == "eval-q":
+        evaluation_episodes = args.episodes if args.episodes is not None else 100
+        evaluation_steps = args.max_steps if args.max_steps is not None else DEFAULT_MAX_STEPS
+        q_model_path = Path(args.model_path) if args.model_path is not None else SAVED_MODELS_DIR / "q_learning" / "q_table.pkl"
+
+        summary = evaluate_q_learning_model(
+            model_path=q_model_path,
+            layout_name=args.layout,
+            episodes=evaluation_episodes,
+            max_steps=evaluation_steps,
+            seed=args.seed,
+            render_mode=render_mode,
+        )
+        print(
+            f"Evaluation complete. avg_reward={summary['average_reward']:.2f} "
+            f"success_rate={summary['success_rate']:.2f} "
+            f"avg_steps={summary['average_steps']:.2f}"
+        )
+        return
+
     evaluation_episodes = args.episodes if args.episodes is not None else 100
     evaluation_steps = args.max_steps if args.max_steps is not None else DEFAULT_MAX_STEPS
-    summary = evaluate_q_learning_model(
-        model_path=Path(args.model_path),
+    reinforce_model_path = (
+        Path(args.model_path)
+        if args.model_path is not None
+        else SAVED_MODELS_DIR / "reinforce" / "policy.pt"
+    )
+    summary = evaluate_reinforce_model(
+        model_path=reinforce_model_path,
         layout_name=args.layout,
         episodes=evaluation_episodes,
         max_steps=evaluation_steps,
         seed=args.seed,
         render_mode=render_mode,
+        policy_mode=args.eval_policy,
     )
     print(
         f"Evaluation complete. avg_reward={summary['average_reward']:.2f} "

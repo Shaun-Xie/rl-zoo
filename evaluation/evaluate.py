@@ -8,6 +8,7 @@ from typing import Any, Callable
 import numpy as np
 
 from algorithms.q_learning import load_q_learning_model, observation_to_state
+from algorithms.reinforce import load_reinforce_agent
 from config import DEFAULT_LAYOUT_NAME, DEFAULT_MAX_STEPS, DEFAULT_SEED
 from env.maze_env import MazeEnv
 from utils.seed import set_global_seeds
@@ -106,6 +107,45 @@ def evaluate_q_learning_model(
     summary["algorithm"] = "q_learning"
     summary["model_path"] = str(Path(model_path))
     summary["action_size"] = action_size
+
+    return summary
+
+
+def evaluate_reinforce_model(
+    *,
+    model_path: str | Path,
+    layout_name: str = DEFAULT_LAYOUT_NAME,
+    episodes: int = 100,
+    max_steps: int = DEFAULT_MAX_STEPS,
+    seed: int = DEFAULT_SEED,
+    render_mode: str | None = None,
+    policy_mode: str = "greedy",
+) -> dict[str, Any]:
+    """Load a saved REINFORCE policy and evaluate it on the maze."""
+
+    if policy_mode not in {"greedy", "sample"}:
+        raise ValueError("policy_mode must be 'greedy' or 'sample'.")
+
+    agent = load_reinforce_agent(model_path)
+
+    def reinforce_policy(observation: np.ndarray) -> int:
+        action, _, _ = agent.select_action(
+            observation,
+            deterministic=(policy_mode == "greedy"),
+        )
+        return action
+
+    summary = evaluate_policy(
+        policy_fn=reinforce_policy,
+        layout_name=layout_name,
+        episodes=episodes,
+        max_steps=max_steps,
+        seed=seed,
+        render_mode=render_mode,
+    )
+    summary["algorithm"] = "reinforce"
+    summary["model_path"] = str(Path(model_path))
+    summary["policy_mode"] = policy_mode
 
     return summary
 

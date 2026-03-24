@@ -30,6 +30,7 @@ def plot_training_curves(
     reward_filename: str = "reward_curve.png",
     success_filename: str = "success_rate.png",
     window_size: int = 50,
+    algorithm_name: str = "Training",
 ) -> dict[str, Path]:
     """Save a reward curve and success-rate trend for training metrics."""
 
@@ -61,7 +62,7 @@ def plot_training_curves(
         label=f"{window_size}-episode average",
         linewidth=2.0,
     )
-    reward_axis.set_title("Q-Learning Reward Curve")
+    reward_axis.set_title(f"{algorithm_name} Reward Curve")
     reward_axis.set_xlabel("Episode")
     reward_axis.set_ylabel("Total Reward")
     reward_axis.legend()
@@ -78,7 +79,7 @@ def plot_training_curves(
         linewidth=2.0,
         color="tab:green",
     )
-    success_axis.set_title("Q-Learning Success Trend")
+    success_axis.set_title(f"{algorithm_name} Success Trend")
     success_axis.set_xlabel("Episode")
     success_axis.set_ylabel("Success Rate")
     success_axis.set_ylim(0.0, 1.05)
