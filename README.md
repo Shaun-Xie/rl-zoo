@@ -1,26 +1,6 @@
 # RL Algorithm Zoo
 
-A Game AI course project that compares four reinforcement learning approaches on a custom maze/gridworld environment:
-
-- Q-Learning
-- REINFORCE
-- A2C
-- PPO
-
-The project now includes working Q-Learning, REINFORCE, A2C, and PPO baselines for the maze. PPO is also the intended candidate algorithm for later MicroRTS-oriented work.
-
-## Environment
-
-- Fixed 8x8 maze with walls, a start cell, and a goal cell
-- Compact numeric observation vector:
-  - agent row / col
-  - goal row / col
-  - four binary wall indicators
-- Discrete actions: up, down, left, right
-- Rewards:
-  - `+10.0` for reaching the goal
-  - `-0.1` for a valid non-goal step
-  - `-1.0` for an invalid move into a wall or boundary
+An original Game AI course project that compares four reinforcement learning algorithms on a custom 8x8 maze environment with compact vector observations. The project includes tabular, policy-gradient, and Stable-Baselines3 baselines, plus saved comparison outputs and short policy demos.
 
 ## Setup
 
@@ -30,73 +10,40 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-If you want optional W&B logging later, install it separately:
+## Run
 
 ```bash
-pip install wandb
-```
-
-## Commands
-
-Run a short environment sanity check:
-
-```bash
-python3 main.py --mode sanity --render ansi
-```
-
-Train Q-Learning:
-
-```bash
-python3 main.py --mode train-q --episodes 800 --max-steps 80
-```
-
-Evaluate a saved Q-Learning model:
-
-```bash
-python3 main.py --mode eval-q --model-path saved_models/q_learning/q_table.pkl --episodes 100
-```
-
-Train REINFORCE:
-
-```bash
-python3 main.py --mode train-reinforce --episodes 1000 --max-steps 80
-```
-
-Evaluate a saved REINFORCE model:
-
-```bash
-python3 main.py --mode eval-reinforce --model-path saved_models/reinforce/policy.pt --episodes 100
-```
-
-Train A2C:
-
-```bash
+python3 main.py --mode train-q
+python3 main.py --mode train-reinforce
 python3 main.py --mode train-a2c
-```
-
-Evaluate a saved A2C model:
-
-```bash
-python3 main.py --mode eval-a2c --model-path saved_models/a2c/model.zip --episodes 100
-```
-
-Train PPO:
-
-```bash
 python3 main.py --mode train-ppo
+python3 main.py --mode compare-results
+python3 main.py --mode record-demos
 ```
 
-Evaluate a saved PPO model:
+## Algorithms
 
-```bash
-python3 main.py --mode eval-ppo --model-path saved_models/ppo/model.zip --episodes 100
-```
+- Q-Learning
+- REINFORCE
+- A2C
+- PPO
 
-## Notes
+## Results
 
-- Q-learning outputs are saved under `saved_models/q_learning/` and `results/q_learning/`.
-- REINFORCE outputs are saved under `saved_models/reinforce/` and `results/reinforce/`.
-- A2C outputs are saved under `saved_models/a2c/` and `results/a2c/`.
-- PPO outputs are saved under `saved_models/ppo/` and `results/ppo/`.
-- The tabular state key is an integer tuple built from the maze observation vector.
-- `wandb` is optional. Training still runs normally without it.
+Saved summaries, plots, and comparison files are written under `results/`. The comparison step creates a final table, report, and presentation-friendly plots in `results/comparison/`.
+
+## Q-Learning
+
+![Q-Learning demo](assets/gifs/q_learning_demo.gif)
+
+## REINFORCE
+
+![REINFORCE demo](assets/gifs/reinforce_demo.gif)
+
+## A2C
+
+![A2C demo](assets/gifs/a2c_demo.gif)
+
+## PPO
+
+![PPO demo](assets/gifs/ppo_demo.gif)

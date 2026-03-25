@@ -65,6 +65,7 @@ def build_a2c_model(
         gamma=gamma,
         n_steps=n_steps,
         ent_coef=ent_coef,
+        device="cpu",
         seed=seed,
         verbose=verbose,
     )
@@ -81,4 +82,4 @@ def load_a2c_model(model_path: str | Path) -> Any:
             "Install the dependencies in requirements.txt."
         ) from exc
 
-    return A2C.load(str(model_path))
+    return A2C.load(str(model_path), device="cpu")

@@ -70,6 +70,7 @@ def build_ppo_model(
         n_steps=n_steps,
         batch_size=batch_size,
         ent_coef=ent_coef,
+        device="cpu",
         seed=seed,
         verbose=verbose,
     )
@@ -86,4 +87,4 @@ def load_ppo_model(model_path: str | Path) -> Any:
             "Install the dependencies in requirements.txt."
         ) from exc
 
-    return PPO.load(str(model_path))
+    return PPO.load(str(model_path), device="cpu")

@@ -18,6 +18,8 @@ from config import (
 )
 from env.maze_env import MazeEnv
 from env.maze_layouts import list_layout_names
+from evaluation.compare_results import compare_runs
+from evaluation.record_demo import record_all_demos
 from evaluation.evaluate import (
     evaluate_a2c_model,
     evaluate_ppo_model,
@@ -51,6 +53,8 @@ def parse_args() -> argparse.Namespace:
             "eval-a2c",
             "train-ppo",
             "eval-ppo",
+            "compare-results",
+            "record-demos",
         ),
         help="Program mode.",
     )
@@ -248,6 +252,22 @@ def main() -> None:
             ),
         )
         run_random_rollout(run_config)
+        return
+
+    if args.mode == "compare-results":
+        summary = compare_runs()
+        print(f"Saved comparison table to {summary['csv_path']}")
+        print(f"Saved comparison report to {summary['report_path']}")
+        return
+
+    if args.mode == "record-demos":
+        saved_paths = record_all_demos(
+            layout_name=args.layout,
+            max_steps=args.max_steps if args.max_steps is not None else DEFAULT_MAX_STEPS,
+            seed=args.seed,
+        )
+        for algorithm, path in saved_paths.items():
+            print(f"{algorithm}: {path}")
         return
 
     if args.mode == "train-q":
