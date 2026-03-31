@@ -17,7 +17,51 @@ python3 main.py --mode train-q
 python3 main.py --mode train-reinforce
 python3 main.py --mode train-a2c
 python3 main.py --mode train-ppo
+python3 main.py --mode live-demo --algorithm ppo
+python3 main.py --mode live-demo --algorithm ppo --playback ansi
 python3 main.py --mode compare-results
+python3 main.py --mode record-demos
+```
+
+## Live Demo
+
+Recommended in-class command:
+
+```bash
+python3 main.py --mode live-demo --algorithm ppo --playback gui --delay-ms 250
+```
+
+Play every algorithm with the same GUI in sequence:
+
+```bash
+python3 main.py --mode live-demo --algorithm all --playback gui --delay-ms 250
+```
+
+Terminal-only fallback:
+
+```bash
+python3 main.py --mode live-demo --algorithm ppo --playback ansi --delay-ms 250
+```
+
+Notes:
+
+- `live-demo` loads the saved model for `q_learning`, `reinforce`, `a2c`, or `ppo` automatically unless you override `--model-path`.
+- `--algorithm all` plays Q-Learning, REINFORCE, A2C, and PPO one after another using the same live demo window style.
+- GUI playback uses a lightweight `matplotlib` window over the existing `rgb_array` renderer.
+- If GUI playback is unavailable, `--playback gui` falls back to ANSI terminal playback automatically.
+- Example alternate algorithms:
+
+```bash
+python3 main.py --mode live-demo --algorithm q_learning
+python3 main.py --mode live-demo --algorithm reinforce
+python3 main.py --mode live-demo --algorithm a2c
+```
+
+## GIF Demos
+
+Regenerate the saved GIF demos:
+
+```bash
 python3 main.py --mode record-demos
 ```
 

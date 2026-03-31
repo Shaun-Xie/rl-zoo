@@ -19,7 +19,7 @@ from config import (
 from env.maze_env import MazeEnv
 from env.maze_layouts import list_layout_names
 from evaluation.compare_results import compare_runs
-from evaluation.record_demo import record_all_demos
+from evaluation.record_demo import play_all_live_demos, play_live_demo, record_all_demos
 from evaluation.evaluate import (
     evaluate_a2c_model,
     evaluate_ppo_model,
@@ -37,7 +37,7 @@ def parse_args() -> argparse.Namespace:
     """Parse CLI arguments for sanity checks, training, and evaluation."""
 
     parser = argparse.ArgumentParser(
-        description="Run maze sanity checks, or train and evaluate RL baselines in the maze."
+        description="Run maze sanity checks, train or evaluate RL baselines, and play live maze demos."
     )
     parser.add_argument(
         "--mode",
@@ -55,6 +55,7 @@ def parse_args() -> argparse.Namespace:
             "eval-ppo",
             "compare-results",
             "record-demos",
+            "live-demo",
         ),
         help="Program mode.",
     )
@@ -150,6 +151,26 @@ def parse_args() -> argparse.Namespace:
         default="greedy",
         choices=("greedy", "sample"),
         help="Action-selection mode used for REINFORCE evaluation.",
+    )
+    parser.add_argument(
+        "--algorithm",
+        type=str,
+        default="ppo",
+        choices=("q_learning", "reinforce", "a2c", "ppo", "all"),
+        help="Algorithm used for live-demo mode. Use 'all' to play every saved policy in sequence.",
+    )
+    parser.add_argument(
+        "--playback",
+        type=str,
+        default="gui",
+        choices=("gui", "ansi"),
+        help="Playback mode used for live-demo. GUI falls back to ANSI if no window backend is available.",
+    )
+    parser.add_argument(
+        "--delay-ms",
+        type=int,
+        default=250,
+        help="Per-frame playback delay in milliseconds for live-demo playback.",
     )
     parser.add_argument(
         "--use-wandb",
@@ -268,6 +289,42 @@ def main() -> None:
         )
         for algorithm, path in saved_paths.items():
             print(f"{algorithm}: {path}")
+        return
+
+    if args.mode == "live-demo":
+        demo_steps = args.max_steps if args.max_steps is not None else DEFAULT_MAX_STEPS
+        if args.algorithm == "all":
+            summaries = play_all_live_demos(
+                layout_name=args.layout,
+                max_steps=demo_steps,
+                seed=args.seed,
+                playback=args.playback,
+                delay_ms=args.delay_ms,
+            )
+            for summary in summaries:
+                print(
+                    f"{summary['algorithm']}: success={summary['success']} "
+                    f"reward={summary['total_reward']:.2f} "
+                    f"steps={summary['steps']} "
+                    f"model_path={summary['model_path']}"
+                )
+            return
+
+        summary = play_live_demo(
+            algorithm=args.algorithm,
+            model_path=args.model_path,
+            layout_name=args.layout,
+            max_steps=demo_steps,
+            seed=args.seed,
+            playback=args.playback,
+            delay_ms=args.delay_ms,
+        )
+        print(
+            f"Live demo finished. success={summary['success']} "
+            f"reward={summary['total_reward']:.2f} "
+            f"steps={summary['steps']} "
+            f"model_path={summary['model_path']}"
+        )
         return
 
     if args.mode == "train-q":
